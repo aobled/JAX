@@ -1,0 +1,7 @@
+/data
+/Graphe_Genomes_CIFAR10
+/Graphe_Genomes_CIFAR100
+/Graphe_Genomes_FigtherJet
+/Graphe_Genomes_MNIST
+/__pycache__
+/tests_gpu_tpu_Colab
