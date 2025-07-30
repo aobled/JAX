@@ -10,7 +10,7 @@ from JAX_JsonModelsLibrary import build_model_from_json, visualize_network
 from JAX_DatasetConfigs import get_dataset_config, load_dataset
 
 
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 EPOCH_NB = 50
 LEARNING_RATE = 0.001
 REPORTING_DIR = './Graphe_Genomes/'
@@ -43,7 +43,7 @@ manager = ModelManager(model,
                        label_names=cfg["label_names"],
                        mean=cfg["mean"],
                        std=cfg["std"], 
-                       gradient_accumulation_steps=8)
+                       gradient_accumulation_steps=2)
 
 manager.summarize_model()
 

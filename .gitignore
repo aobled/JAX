@@ -5,3 +5,4 @@
 /Graphe_Genomes_MNIST
 /__pycache__
 /tests_gpu_tpu_Colab
+.pth
