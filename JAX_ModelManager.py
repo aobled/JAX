@@ -220,9 +220,7 @@ class ModelManager:
             train_dataset['image'] = np.asarray(train_dataset['image'])[indices]
             train_dataset['label'] = np.asarray(train_dataset['label'])[indices]
 
-            # aptime pour éviter evaluate(train): accumulateurs pour l'accuracy sur train
-            total_correct_train = 0
-            total_seen_train = 0
+            # Plus besoin d'accumulateurs pour l'accuracy train
             
             # Gradient Accumulation
             if self.multi_device:
@@ -242,13 +240,7 @@ class ModelManager:
                     batch = reshape_for_pmap(batch)
                     self.state, self.batch_stats, metrics = self.p_train_step(self.state, self.batch_stats, batch)
 
-                    # Accumuler les prédictions correctes
-                    accuracy = metrics['accuracy']
-                    if isinstance(accuracy, jax.Array) and accuracy.ndim > 0:
-                        accuracy = accuracy.mean()  # ou jnp.mean(accuracy)
-                    
-                    total_correct_train += int(float(accuracy) * len(batch['label']))
-                    total_seen_train += len(batch['label'])
+                    # Pas besoin d'accumuler l'accuracy train ici, on l'évalue proprement après
             else:
                 # Mode single-device avec gradient accumulation
                 grad_accum = None
@@ -287,19 +279,11 @@ class ModelManager:
                         grad_accum = None
                         accum_step = 0
 
-                    # Accumuler les prédictions correctes
-                    accuracy = metrics['accuracy']
-                    if isinstance(accuracy, jax.Array) and accuracy.ndim > 0:
-                        accuracy = accuracy.mean()
-                    
-                    total_correct_train += int(float(accuracy) * len(batch['label']))
-                    total_seen_train += len(batch['label'])
+                    # Pas besoin d'accumuler l'accuracy train ici, on l'évalue proprement après
 
             val_acc = self.evaluate_model_fast(test_dataset, label_eval='val')
-            #train_acc = self.evaluate_model_fast(train_dataset, label_eval='train')
-
-            # Train accuracy reconstituée à partir des batches
-            train_acc = 100.0 * total_correct_train / total_seen_train
+            # Évaluer le train set avec le même mode que le val set (deterministic=True)
+            train_acc = self.evaluate_model_fast(train_dataset, label_eval='train')
 
             if self.multi_device:
                 loss = metrics['loss'].mean()
