@@ -11,7 +11,7 @@ from JAX_DatasetConfigs import get_dataset_config, load_dataset
 
 
 BATCH_SIZE = 64
-EPOCH_NB = 50
+EPOCH_NB = 150
 LEARNING_RATE = 0.001
 REPORTING_DIR = './Graphe_Genomes/'
 
