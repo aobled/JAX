@@ -99,11 +99,34 @@ class ModelManager:
             self.p_compute_gradients = jax.jit(self.compute_gradients)
 
     def create_optimizer(self):
-        self.scheduler = optax.cosine_decay_schedule(
+        """self.scheduler = optax.cosine_decay_schedule(
             init_value=self.learning_rate,
             decay_steps=self.num_epochs * (self.dataset_size // self.batch_size),
             alpha=0.01  # ou 0.0 si tu veux tomber à 0
+        )"""
+        warmup_epochs = 5
+        decay_epochs = self.num_epochs - warmup_epochs
+        steps_per_epoch = self.dataset_size // self.batch_size
+        warmup_steps = warmup_epochs * steps_per_epoch
+        decay_steps = decay_epochs * steps_per_epoch
+
+        warmup_schedule = optax.linear_schedule(
+            init_value=0.0,
+            end_value=self.learning_rate,
+            transition_steps=warmup_steps
         )
+
+        decay_schedule = optax.cosine_decay_schedule(
+            init_value=self.learning_rate,
+            decay_steps=decay_steps,
+            alpha=0.1  # LR final = 10% du LR initial
+        )
+
+        self.scheduler = optax.join_schedules(
+            schedules=[warmup_schedule, decay_schedule],
+            boundaries=[warmup_steps]
+        )
+
         return optax.adamw(self.scheduler, weight_decay=1e-4)
 
     def init_state(self):
