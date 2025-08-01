@@ -73,7 +73,7 @@
     { "type": "layer_norm", "id": "norm1", "inputs": ["gap"] },
     { "type": "dense", "id": "fc1", "inputs": ["norm1"], "units": 384, "activation": "silu"  },
     { "type": "dropout", "id": "drop1", "inputs": ["fc1"], "rate": 0.2 },
-    { "type": "dense", "id": "output", "inputs": ["drop1"], "units": 10}
+    { "type": "dense", "id": "output", "inputs": ["drop1"], "units": 10 }
   ],
   "output_layer": "output"
 }

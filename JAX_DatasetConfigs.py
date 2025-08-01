@@ -44,9 +44,9 @@ DATASET_CONFIGS = {
         "size_function": get_CIFAR100_like_dataset_size,
     },
     "FIGHTERJET": {
-        "mean": jnp.array([0.5141, 0.5664, 0.6155]),
-        "std": jnp.array([0.2446, 0.2346, 0.2659]),
-        "input_shape": (1, 64, 64, 3),
+        "mean": jnp.array([0.5193, 0.5682, 0.6112]),
+        "std": jnp.array([0.2487, 0.2403, 0.2732]),
+        "input_shape": (1, 128, 128, 3),
         "channels": 3,
         "num_classes": 10,
         "data_dir": "./data/FigtherJet/",

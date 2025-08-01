@@ -204,7 +204,7 @@ from PIL import Image
 def process_dataset_cropped_square_centered(
     root_dir,
     output_dir,
-    target_size=64,
+    target_size=128,
     scale=1.2
 ):
     os.makedirs(output_dir, exist_ok=True)
@@ -228,9 +228,13 @@ def process_dataset_cropped_square_centered(
             category = data["annotation"]["category_name"]
             x, y, w, h = map(int, bbox)
 
-            if w <= 0 or h <= 0:
-                print(f"[⚠️] Bbox invalide ignorée (w/h ≤ 0) : {json_file}")
+            if w <= target_size and h <= target_size:
+                print(f"[⚠️] Bbox too small (w/h ≤ {target_size}) : {json_file}")
                 continue
+
+            """if w <= 0 or h <= 0:
+                print(f"[⚠️] Bbox invalide ignorée (w/h ≤ 0) : {json_file}")
+                continue"""
 
             # Calcule carré centré agrandi
             cx = x + w / 2
@@ -285,8 +289,8 @@ _balanced_dataset_split/
 def balance_and_split_dataset(
     input_dir,
     output_dir,
-    max_per_class=5702,
-    val_ratio=0.2,
+    max_per_class=3027,
+    val_ratio=0.1,
     seed=42
 ):
     random.seed(seed)
@@ -322,7 +326,7 @@ def balance_and_split_dataset(
 def create_npz_splits(
     dataset_dir,
     output_prefix,
-    image_size=(64, 64)
+    image_size=(128, 128)
 ):
     for split in ['train', 'val']:
         split_dir = os.path.join(dataset_dir, split)
