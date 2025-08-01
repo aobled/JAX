@@ -67,6 +67,7 @@ class ModelManager:
         self.std = std if std is not None else []
         self.reporting = Reporting(label_names=self.label_names, mean=self.mean, std=self.std)
         self.label_smoothing = True # Par défaut, on active le label smoothing
+        self.use_warmup_scheduler = False  # Active à partir du test 4
         
         # Gradient Accumulation
         self.gradient_accumulation_steps = gradient_accumulation_steps
@@ -99,35 +100,42 @@ class ModelManager:
             self.p_compute_gradients = jax.jit(self.compute_gradients)
 
     def create_optimizer(self):
-        """self.scheduler = optax.cosine_decay_schedule(
-            init_value=self.learning_rate,
-            decay_steps=self.num_epochs * (self.dataset_size // self.batch_size),
-            alpha=0.01  # ou 0.0 si tu veux tomber à 0
-        )"""
-        warmup_epochs = 5
-        decay_epochs = self.num_epochs - warmup_epochs
         steps_per_epoch = self.dataset_size // self.batch_size
-        warmup_steps = warmup_epochs * steps_per_epoch
-        decay_steps = decay_epochs * steps_per_epoch
 
-        warmup_schedule = optax.linear_schedule(
-            init_value=0.0,
-            end_value=self.learning_rate,
-            transition_steps=warmup_steps
-        )
+        if self.use_warmup_scheduler:
+            # === Warmup + Cosine ===
+            warmup_epochs = 5
+            decay_epochs = self.num_epochs - warmup_epochs
+            warmup_steps = warmup_epochs * steps_per_epoch
+            decay_steps = decay_epochs * steps_per_epoch
 
-        decay_schedule = optax.cosine_decay_schedule(
-            init_value=self.learning_rate,
-            decay_steps=decay_steps,
-            alpha=0.1  # LR final = 10% du LR initial
-        )
+            warmup_schedule = optax.linear_schedule(
+                init_value=0.0,
+                end_value=self.learning_rate,
+                transition_steps=warmup_steps
+            )
 
-        self.scheduler = optax.join_schedules(
-            schedules=[warmup_schedule, decay_schedule],
-            boundaries=[warmup_steps]
-        )
+            decay_schedule = optax.cosine_decay_schedule(
+                init_value=self.learning_rate,
+                decay_steps=decay_steps,
+                alpha=0.1  # LR final = 10% du LR initial
+            )
+
+            self.scheduler = optax.join_schedules(
+                schedules=[warmup_schedule, decay_schedule],
+                boundaries=[warmup_steps]
+            )
+        else:
+            # === Cosine pure sans warmup ===
+            total_steps = self.num_epochs * steps_per_epoch
+            self.scheduler = optax.cosine_decay_schedule(
+                init_value=self.learning_rate,
+                decay_steps=total_steps,
+                alpha=0.1
+            )
 
         return optax.adamw(self.scheduler, weight_decay=1e-4)
+
 
     def init_state(self):
         rng, init_rng = jax.random.split(self.rng)

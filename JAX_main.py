@@ -10,13 +10,14 @@ from JAX_JsonModelsLibrary import build_model_from_json, visualize_network
 from JAX_DatasetConfigs import get_dataset_config, load_dataset
 
 
-BATCH_SIZE = 64
-EPOCH_NB = 150
+BATCH_SIZE = 32
+GRADIENT_ACCUMULATION_STEPS = 8
+EPOCH_NB = 100
 LEARNING_RATE = 0.001
 REPORTING_DIR = './Graphe_Genomes/'
 
 # Choix du dataset cible
-DATASET_NAME = "CIFAR10"  # "CIFAR10"  "MNIST", "CIFAR100", "FIGHTERJET"
+DATASET_NAME = "FIGHTERJET"  # "CIFAR10"  "MNIST", "CIFAR100", "FIGHTERJET"
 MODEL_NAME = 'depthwise_conv_chatGPT04'
 # Chargement automatique du dataset
 cfg = get_dataset_config(DATASET_NAME)
@@ -43,12 +44,12 @@ manager = ModelManager(model,
                        label_names=cfg["label_names"],
                        mean=cfg["mean"],
                        std=cfg["std"], 
-                       gradient_accumulation_steps=2)
+                       gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS)
 
 manager.summarize_model()
 
 # 4. Entraînement
-print("launch TRAINING GPU L4 1 batch de 128")
+print("launch TRAINING on", DATASET_NAME, "batch size=", BATCH_SIZE, "x", GRADIENT_ACCUMULATION_STEPS)
 manager.train_model(train_dataset, test_dataset, epochs=EPOCH_NB)
 
 # Affichage des erreurs du modèle sauvegardé sur le test_dataset
@@ -59,6 +60,11 @@ manager.reporting.show_errors_from_pth(dataset=test_dataset,
                                        json_path=MODEL_NAME+".json", 
                                        err_png_path=MODEL_NAME+"_errors.png", 
                                        max_errors=9)
+
+manager.reporting.confusion_matrix_from_pth(dataset=test_dataset, 
+                                            pth_path=MODEL_NAME+".pth",  
+                                            json_path=MODEL_NAME+".json", 
+                                            confusion_matrix_png_path=MODEL_NAME+"_confusion_matrix.png")
 """import pickle
 import matplotlib.pyplot as plt
 import numpy as np
