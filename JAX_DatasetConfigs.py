@@ -1,4 +1,5 @@
 import jax.numpy as jnp
+import numpy as np
 from JAX_DataManager import (
     load_cifar10_data, get_CIFAR10_like_dataset_size,
     load_mnist_data, get_mnist_dataset_size,
@@ -8,8 +9,8 @@ from JAX_DataManager import (
 
 DATASET_CONFIGS = {
     "MNIST": {
-        "mean": jnp.array([0.1307]),
-        "std": jnp.array([0.3081]),
+            "mean": np.array([0.1307]),
+    "std": np.array([0.3081]),
         "input_shape": (1, 28, 28, 1),
         "channels": 1,
         "num_classes": 10,
@@ -19,8 +20,8 @@ DATASET_CONFIGS = {
         "size_function": get_mnist_dataset_size,
     },
     "CIFAR10": {
-        "mean": jnp.array([0.4914, 0.4822, 0.4465]),
-        "std": jnp.array([0.2470, 0.2435, 0.2616]),
+            "mean": np.array([0.4914, 0.4822, 0.4465]),
+    "std": np.array([0.2470, 0.2435, 0.2616]),
         "input_shape": (1, 32, 32, 3),
         "channels": 3,
         "num_classes": 10,
@@ -33,8 +34,8 @@ DATASET_CONFIGS = {
         "size_function": get_CIFAR10_like_dataset_size,
     },
     "CIFAR100": {
-        "mean": jnp.array([0.5071, 0.4867, 0.4408]),
-        "std": jnp.array([0.2675, 0.2565, 0.2761]),
+            "mean": np.array([0.5071, 0.4867, 0.4408]),
+    "std": np.array([0.2675, 0.2565, 0.2761]),
         "input_shape": (1, 32, 32, 3),
         "channels": 3,
         "num_classes": 100,
@@ -44,11 +45,11 @@ DATASET_CONFIGS = {
         "size_function": get_CIFAR100_like_dataset_size,
     },
     "FIGHTERJET": {
-        "mean": jnp.array([0.5193, 0.5682, 0.6112]),
-        "std": jnp.array([0.2487, 0.2403, 0.2732]),
+        "mean": np.array([0.4852, 0.5285, 0.5696]),
+        "std": np.array([0.2538, 0.2503, 0.2782]),
         "input_shape": (1, 128, 128, 3),
         "channels": 3,
-        "num_classes": 10,
+        "num_classes": 7,
         "data_dir": "./data/FigtherJet/",
         "label_names": ["c17", "f14", "f15", "f16", "f22", "f35", "mig29", "rafale", "su27", "typhoon"],
         "load_function": load_fighterjet_data,

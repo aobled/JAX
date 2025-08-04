@@ -10,19 +10,19 @@ from pathlib import Path
 
 
 
-def normalize_image(image: jnp.ndarray, mean: jnp.ndarray, std: jnp.ndarray) -> jnp.ndarray:
+def normalize_image(image: np.ndarray, mean: np.ndarray, std: np.ndarray) -> np.ndarray:
     """Normalize an image using the given mean and standard deviation."""
     return (image - mean) / std
 
-def load_fighterjet_npz(filepath: str, mean: jnp.ndarray, std: jnp.ndarray) -> Dict[str, jnp.ndarray]:
+def load_fighterjet_npz(filepath: str, mean: np.ndarray, std: np.ndarray) -> Dict[str, np.ndarray]:
     data = np.load(filepath)
     images = data["image"].astype(np.float32) / 255.0
     labels = data["label"].astype(np.int32)
     images = normalize_image(images, mean, std)
-    return {"image": jnp.array(images), "label": jnp.array(labels)}
+    return {"image": images, "label": labels}  # Retourne numpy, pas jnp
 
-def load_fighterjet_data(data_dir: str, mean: jnp.ndarray, std: jnp.ndarray) -> Tuple[Dict[str, jnp.ndarray], Dict[str, jnp.ndarray]]:
-    """Charge le dataset FighterJet à partir de .npz compressés"""
+def load_fighterjet_data(data_dir: str, mean: np.ndarray, std: np.ndarray) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
+    """Charge le dataset FighterJet à partir de .npz compressés (retourne numpy pour économiser la mémoire)"""
     train_file = os.path.join(data_dir, "fighterjet_train.npz")
     val_file = os.path.join(data_dir, "fighterjet_val.npz")
 
@@ -36,16 +36,16 @@ def get_npz_dataset_size(npz_path: str) -> int:
     with np.load(npz_path) as data:
         return data["image"].shape[0]
 
-def load_cifar10_batch(filepath: str, mean: jnp.ndarray, std: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
+def load_cifar10_batch(filepath: str, mean: np.ndarray, std: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Load a single batch of CIFAR-10 data and normalize the images."""
     with open(filepath, 'rb') as file:
         data_dict = pickle.load(file, encoding='bytes')
         images = data_dict[b'data'].reshape(-1, 3, 32, 32).transpose(0, 2, 3, 1) / 255.0
         images = normalize_image(images, mean, std)
-        labels = jnp.array(data_dict[b'labels'])
-    return jnp.array(images), labels
+        labels = np.array(data_dict[b'labels'])
+    return images, labels
 
-def load_cifar10_data(data_dir: str, mean: jnp.ndarray, std: jnp.ndarray) -> Tuple[Dict[str, jnp.ndarray], Dict[str, jnp.ndarray]]:
+def load_cifar10_data(data_dir: str, mean: np.ndarray, std: np.ndarray) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
     """Load the entire CIFAR-10 dataset."""
     train_batches = ['data_batch_1', 'data_batch_2', 'data_batch_3', 'data_batch_4', 'data_batch_5']
     test_batch = 'test_batch'
@@ -58,8 +58,8 @@ def load_cifar10_data(data_dir: str, mean: jnp.ndarray, std: jnp.ndarray) -> Tup
         train_images.append(images)
         train_labels.append(labels)
 
-    train_images = jnp.concatenate(train_images, axis=0)
-    train_labels = jnp.concatenate(train_labels, axis=0)
+    train_images = np.concatenate(train_images, axis=0)
+    train_labels = np.concatenate(train_labels, axis=0)
 
     test_filepath = os.path.join(data_dir, test_batch)
     test_images, test_labels = load_cifar10_batch(test_filepath, mean, std)
@@ -108,15 +108,15 @@ def read_idx_images(path: str) -> jnp.ndarray:
         magic, num, rows, cols = np.frombuffer(f.read(16), dtype='>i4')
         images = np.frombuffer(f.read(), dtype=np.uint8).reshape(num, rows, cols)
         images = images[..., np.newaxis]  # (num, 28, 28, 1)
-        return jnp.array(images, dtype=jnp.float32) / 255.0
+        return np.array(images, dtype=np.float32) / 255.0
 
 def read_idx_labels(path: str) -> jnp.ndarray:
     with gzip.open(path, 'rb') as f:
         magic, num = np.frombuffer(f.read(8), dtype='>i4')
         labels = np.frombuffer(f.read(), dtype=np.uint8)
-        return jnp.array(labels)
+        return np.array(labels)
 
-def load_mnist_data(data_dir: str, mean: jnp.ndarray = 0.1307, std: jnp.ndarray = 0.3081) -> Tuple[Dict[str, jnp.ndarray], Dict[str, jnp.ndarray]]:
+def load_mnist_data(data_dir: str, mean: np.ndarray = 0.1307, std: np.ndarray = 0.3081) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
     """Load the MNIST dataset and normalize images."""
     train_images = read_idx_images(os.path.join(data_dir, 'train-images-idx3-ubyte.gz'))
     train_labels = read_idx_labels(os.path.join(data_dir, 'train-labels-idx1-ubyte.gz'))
@@ -162,7 +162,7 @@ def get_mnist_dataset_size(dir_path: Union[str, Path]) -> int:
 
 
 
-def load_cifar100_batch(filepath: str, mean: jnp.ndarray, std: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
+def load_cifar100_batch(filepath: str, mean: np.ndarray, std: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Charge un batch de CIFAR-100 et applique la normalisation."""
     with open(filepath, 'rb') as f:
         batch = pickle.load(f, encoding='bytes')
@@ -170,9 +170,9 @@ def load_cifar100_batch(filepath: str, mean: jnp.ndarray, std: jnp.ndarray) -> T
         images = batch[b'data'].reshape(-1, 3, 32, 32).transpose(0, 2, 3, 1) / 255.0
         labels = jnp.array(batch[b'fine_labels'])  # labels "fin" (100 classes)
         images = normalize_image(images, mean, std)
-        return jnp.array(images), labels
+        return images, labels
 
-def load_cifar100_data(data_dir: str, mean: jnp.ndarray, std: jnp.ndarray) -> Tuple[Dict[str, jnp.ndarray], Dict[str, jnp.ndarray]]:
+def load_cifar100_data(data_dir: str, mean: np.ndarray, std: np.ndarray) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
     """Charge CIFAR-100 depuis les fichiers 'train' et 'test'."""
     train_file = os.path.join(data_dir, 'train')
     test_file = os.path.join(data_dir, 'test')

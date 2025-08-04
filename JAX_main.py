@@ -61,10 +61,10 @@ manager.reporting.show_errors_from_pth(dataset=test_dataset,
                                        err_png_path=MODEL_NAME+"_errors.png", 
                                        max_errors=9)
 
-manager.reporting.confusion_matrix_from_pth(dataset=test_dataset, 
-                                            pth_path=MODEL_NAME+".pth",  
-                                            json_path=MODEL_NAME+".json", 
-                                            confusion_matrix_png_path=MODEL_NAME+"_confusion_matrix.png")
+#manager.reporting.confusion_matrix_from_pth(dataset=test_dataset, 
+#                                            pth_path=MODEL_NAME+".pth",  
+#                                            json_path=MODEL_NAME+".json", 
+#                                            confusion_matrix_png_path=MODEL_NAME+"_confusion_matrix.png")
 """import pickle
 import matplotlib.pyplot as plt
 import numpy as np

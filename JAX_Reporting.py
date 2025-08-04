@@ -120,10 +120,10 @@ class Reporting:
         else:
             print("Aucune erreur détectée sur le dataset.")
 
-    def show_errors_from_pth(self, dataset, mean, std, pth_path, json_path, err_png_path, max_errors: int = 9):
+    def show_errors_from_pth(self, dataset, mean, std, pth_path, json_path, err_png_path, max_errors: int = 9, use_subset: bool = True):
         """
         Affiche les erreurs de prédiction du modèle chargé depuis un .pth et un .json sur un dataset donné (max 9 erreurs).
-        Version accélérée : prédiction batchée puis affichage des erreurs.
+        Version optimisée pour CPU : conversion différée et sous-ensemble pour train.
         """
         # Charger la config JSON
         with open(json_path, 'r') as f:
@@ -140,12 +140,24 @@ class Reporting:
 
         images = dataset['image']
         labels = np.array(dataset['label'])
-        batch_size = 128
+        
+        # ⚠️ Sous-ensemble intelligent : plus d'images si peu d'erreurs attendues
+        if use_subset and len(images) > 1000:  # Si dataset large, prendre un sous-ensemble
+            num_total = len(images)
+            # Pour les erreurs : plus d'images pour capturer toutes les erreurs
+            num_subset = min(2000, num_total // 5)  # Max 2000 images pour plus d'erreurs
+            np.random.seed(42)  # Fixe pour reproductibilité
+            subset_indices = np.random.choice(num_total, num_subset, replace=False)
+            images = images[subset_indices]
+            labels = labels[subset_indices]
+        
+        batch_size = 32  # Batch size réduit pour économiser la mémoire
         variables = {'params': params, 'batch_stats': batch_stats}
         all_logits = []
-        # Prédiction batchée
+        
+        # Prédiction batchée avec conversion différée
         for i in tqdm.tqdm(range(0, len(images), batch_size), desc='Prédiction batchée'):
-            batch_images = images[i:i+batch_size]
+            batch_images = jnp.array(images[i:i+batch_size])  # Conversion différée ici
             logits = model.apply(variables, batch_images, config, rng=dummy_rng, deterministic=True, mutable=False)
             all_logits.append(np.array(logits))
         all_logits = np.concatenate(all_logits, axis=0)
@@ -193,10 +205,10 @@ class Reporting:
         else:
             print("Aucune erreur détectée sur le dataset.")
 
-    def confusion_matrix_from_pth(self, dataset, pth_path, json_path, confusion_matrix_png_path):
+    def confusion_matrix_from_pth(self, dataset, pth_path, json_path, confusion_matrix_png_path, use_subset: bool = True):
         """
         Crée une matrice de confusion du modèle chargé depuis un .pth et un .json sur un dataset donné.
-        La matrice est dynamique selon le nombre de classes du dataset.
+        Version optimisée pour CPU : conversion différée et sous-ensemble pour train.
         """
         # Charger la config JSON
         with open(json_path, 'r') as f:
@@ -214,16 +226,26 @@ class Reporting:
         images = dataset['image']
         labels = np.array(dataset['label'])
         
+        # ⚠️ Sous-ensemble intelligent : plus d'images pour matrice de confusion
+        if use_subset and len(images) > 1000:  # Si dataset large, prendre un sous-ensemble
+            num_total = len(images)
+            # Pour la matrice de confusion : plus d'images pour statistiques fiables
+            num_subset = min(3000, num_total // 3)  # Max 3000 images pour statistiques
+            np.random.seed(42)  # Fixe pour reproductibilité
+            subset_indices = np.random.choice(num_total, num_subset, replace=False)
+            images = images[subset_indices]
+            labels = labels[subset_indices]
+        
         # Déterminer le nombre de classes dynamiquement
         num_classes = len(np.unique(labels))
         
-        batch_size = 128
+        batch_size = 32  # Batch size réduit pour économiser la mémoire
         variables = {'params': params, 'batch_stats': batch_stats}
         all_logits = []
         
-        # Prédiction batchée
+        # Prédiction batchée avec conversion différée
         for i in tqdm.tqdm(range(0, len(images), batch_size), desc='Prédiction pour matrice de confusion'):
-            batch_images = images[i:i+batch_size]
+            batch_images = jnp.array(images[i:i+batch_size])  # Conversion différée ici
             logits = model.apply(variables, batch_images, config, rng=dummy_rng, deterministic=True, mutable=False)
             all_logits.append(np.array(logits))
         

@@ -1,0 +1,79 @@
+{
+  "layers": [
+    { "type": "input", "id": "input" },
+
+    { "type": "conv", "id": "conv1", "inputs": ["input"], "filters": 64, "kernel_size": [3, 3], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn1", "inputs": ["conv1"] },
+    { "type": "silu", "id": "act1", "inputs": ["bn1"] },
+
+    { "type": "conv", "id": "sepconv2_dw", "inputs": ["act1"], "filters": 64, "kernel_size": [3, 3], "padding": "SAME", "groups": 64 },
+    { "type": "conv", "id": "sepconv2_pw", "inputs": ["sepconv2_dw"], "filters": 128, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn2", "inputs": ["sepconv2_pw"] },
+    { "type": "silu", "id": "act2", "inputs": ["bn2"] },
+
+    { "type": "conv", "id": "sepconv3_dw", "inputs": ["act2"], "filters": 128, "kernel_size": [3, 3], "padding": "SAME", "groups": 128 },
+    { "type": "conv", "id": "sepconv3_pw", "inputs": ["sepconv3_dw"], "filters": 128, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn3", "inputs": ["sepconv3_pw"] },
+
+    { "type": "conv", "id": "res_proj1", "inputs": ["act1"], "filters": 128, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "res_bn1", "inputs": ["res_proj1"] },
+    { "type": "add", "id": "act3", "inputs": ["res_bn1", "bn3"], "activation": "silu" },
+
+    { "type": "max_pool", "id": "pool1", "inputs": ["act3"], "pool_size": [2, 2], "strides": [2, 2] },
+
+    { "type": "conv", "id": "sepconv4_dw", "inputs": ["pool1"], "filters": 128, "kernel_size": [3, 3], "padding": "SAME", "groups": 128 },
+    { "type": "conv", "id": "sepconv4_pw", "inputs": ["sepconv4_dw"], "filters": 256, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn4", "inputs": ["sepconv4_pw"] },
+    { "type": "silu", "id": "act4", "inputs": ["bn4"] },
+
+    { "type": "conv", "id": "sepconv5_dw", "inputs": ["act4"], "filters": 256, "kernel_size": [3, 3], "padding": "SAME", "groups": 256 },
+    { "type": "conv", "id": "sepconv5_pw", "inputs": ["sepconv5_dw"], "filters": 256, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn5", "inputs": ["sepconv5_pw"] },
+    { "type": "silu", "id": "act5", "inputs": ["bn5"] },
+
+    { "type": "dropout", "id": "drop_se", "inputs": ["act5"], "rate": 0.2 },
+
+    { "type": "global_avg_pool", "id": "se_gap", "inputs": ["drop_se"], "keepdims": false },
+    { "type": "dense", "id": "se_dense1", "inputs": ["se_gap"], "units": 64 },
+    { "type": "silu", "id": "se_act1", "inputs": ["se_dense1"] },
+    { "type": "dense", "id": "se_dense2", "inputs": ["se_act1"], "units": 256 },
+    { "type": "sigmoid", "id": "se_sigmoid", "inputs": ["se_dense2"] },
+    { "type": "broadcast", "id": "se_broadcast", "inputs": ["se_sigmoid"] },
+    { "type": "multiply", "id": "se_scaled", "inputs": ["act5", "se_broadcast"] },
+
+    { "type": "max_pool", "id": "pool2", "inputs": ["se_scaled"], "pool_size": [2, 2], "strides": [2, 2] },
+
+    { "type": "conv", "id": "conv6", "inputs": ["pool2"], "filters": 512, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn6", "inputs": ["conv6"] },
+    { "type": "silu", "id": "act6", "inputs": ["bn6"] },
+
+    { "type": "conv", "id": "sepconv6_dw", "inputs": ["act6"], "filters": 512, "kernel_size": [3, 3], "padding": "SAME", "groups": 512 },
+    { "type": "conv", "id": "sepconv6_pw", "inputs": ["sepconv6_dw"], "filters": 512, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn7", "inputs": ["sepconv6_pw"] },
+    { "type": "silu", "id": "act7", "inputs": ["bn7"] },
+
+    { "type": "conv", "id": "conv7", "inputs": ["act7"], "filters": 512, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn8", "inputs": ["conv7"] },
+    { "type": "silu", "id": "act8", "inputs": ["bn8"] },
+    { "type": "add", "id": "res3", "inputs": ["act7", "act8"] },
+
+    { "type": "dropout", "id": "drop_final", "inputs": ["res3"], "rate": 0.1 },
+
+    { "type": "global_avg_pool", "id": "se2_gap", "inputs": ["drop_final"], "keepdims": false },
+    { "type": "dense", "id": "se2_fc1", "inputs": ["se2_gap"], "units": 64 , "activation": "sigmoid" },
+    { "type": "dense", "id": "se2_fc2", "inputs": ["se2_fc1"], "units": 512, "activation": "gelu" },
+    { "type": "broadcast", "id": "se2_broadcast", "inputs": ["se2_fc2"] },
+    { "type": "multiply", "id": "se2_scaled", "inputs": ["res3", "se2_broadcast"] },
+
+    { "type": "conv", "id": "spatial_attn", "inputs": ["se2_scaled"], "filters": 1, "kernel_size": [1, 1], "padding": "SAME", "activation": "sigmoid" },
+    { "type": "multiply", "id": "attn_output", "inputs": ["se2_scaled", "spatial_attn"] },
+
+    { "type": "global_avg_pool", "id": "gap", "inputs": ["attn_output"] },
+
+    { "type": "layer_norm", "id": "norm1", "inputs": ["gap"] },
+    { "type": "dense", "id": "fc1", "inputs": ["norm1"], "units": 384, "activation": "silu"  },
+    { "type": "dropout", "id": "drop1", "inputs": ["fc1"], "rate": 0.2 },
+    { "type": "dense", "id": "output", "inputs": ["drop1"], "units": 10 }
+  ],
+  "output_layer": "output"
+}

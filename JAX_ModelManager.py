@@ -6,6 +6,7 @@ import sys
 import optax
 import numpy as np
 import pickle
+import numpy as np
 
 import jax
 import jax.numpy as jnp
@@ -260,8 +261,8 @@ class ModelManager:
                     start = i * batch_size
                     end = start + batch_size
                     batch = {
-                        'image': train_dataset['image'][start:end],
-                        'label': train_dataset['label'][start:end]
+                        'image': jnp.array(train_dataset['image'][start:end]),  # Conversion différée ici
+                        'label': jnp.array(train_dataset['label'][start:end])
                     }
                     
                     # Data augmentation (uniquement sur les images)
@@ -281,8 +282,8 @@ class ModelManager:
                     start = i * batch_size
                     end = start + batch_size
                     batch = {
-                        'image': train_dataset['image'][start:end],
-                        'label': train_dataset['label'][start:end]
+                        'image': jnp.array(train_dataset['image'][start:end]),  # Conversion différée ici
+                        'label': jnp.array(train_dataset['label'][start:end])
                     }
                     
                     # Data augmentation (uniquement sur les images)
@@ -382,9 +383,11 @@ class ModelManager:
 
     def evaluate_model_fast(self, evaluated_dataset: Dict[str, jnp.ndarray], label_eval="val") -> float:
         """
-        Évalue rapidement l'ensemble par batchs, en JAX JIT vectorisé.
-        Respecte self.batch_size pour éviter l'explosion mémoire.
+        Évalue rapidement un sous-ensemble du dataset (10% si 'train', 100% sinon),
+        en utilisant des batchs de taille self.batch_size.
         """
+        import numpy as np  # pour le tirage aléatoire contrôlé
+    
         variables = {
             'params': unreplicate(self.state).params,
             'batch_stats': unreplicate(self.batch_stats)
@@ -404,14 +407,23 @@ class ModelManager:
     
         images = evaluated_dataset['image']
         labels = evaluated_dataset['label']
-        batch_size = self.batch_size
     
+        if label_eval == "train":
+            # ⚠️ Ne garder que 10% du dataset d'entraînement, de façon déterministe
+            num_total = len(images)
+            num_subset = max(1, num_total // 10)
+            np.random.seed(42)  # Fixe pour reproductibilité
+            subset_indices = np.random.choice(num_total, num_subset, replace=False)
+            images = images[subset_indices]
+            labels = labels[subset_indices]
+    
+        batch_size = self.batch_size
         total_correct = 0
         total_seen = 0
     
         for i in tqdm.tqdm(range(0, len(images), batch_size), desc="Evaluating " + label_eval):
-            batch_images = images[i:i+batch_size]
-            batch_labels = labels[i:i+batch_size]
+            batch_images = jnp.array(images[i:i+batch_size])
+            batch_labels = jnp.array(labels[i:i+batch_size])
     
             logits = apply_fn(batch_images, variables)
             preds = jnp.argmax(logits, axis=-1)
@@ -420,6 +432,7 @@ class ModelManager:
     
         accuracy = total_correct / total_seen
         return float(accuracy * 100)
+
 
     """
     Qu'est-ce que le Label Smoothing ?

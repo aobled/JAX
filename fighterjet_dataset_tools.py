@@ -14,7 +14,7 @@ Corp des images en 224*224 avec bande vertes vertical ou horizontale et fond ver
 def process_dataset(
     root_dir,
     output_dir,
-    target_size=64,
+    target_size=128,
     padding_color=(0, 255, 0)
 ):
     os.makedirs(output_dir, exist_ok=True)
@@ -39,9 +39,13 @@ def process_dataset(
             category = data["annotation"]["category_name"]
             x, y, w, h = map(int, bbox)
 
-            if w <= 0 or h <= 0:
-                print(f"[⚠️] Bbox invalide ignorée : {json_file}")
+            if w <= target_size and h <= target_size:
+                print(f"[⚠️] Bbox too small (w/h ≤ {target_size}) : {json_file}")
                 continue
+
+            """if w <= 0 or h <= 0:
+                print(f"[⚠️] Bbox invalide ignorée (w/h ≤ 0) : {json_file}")
+                continue"""
 
             cropped = image.crop((x, y, x + w, y + h))
 
@@ -80,7 +84,7 @@ def process_dataset(
 def process_dataset_stretched(
     root_dir,
     output_dir,
-    target_size=64
+    target_size=128
 ):
     os.makedirs(output_dir, exist_ok=True)
 
@@ -103,9 +107,13 @@ def process_dataset_stretched(
             category = data["annotation"]["category_name"]
             x, y, w, h = map(int, bbox)
 
-            if w <= 0 or h <= 0:
-                print(f"[⚠️] Bbox invalide ignorée : {json_file}")
+            if w <= target_size and h <= target_size:
+                print(f"[⚠️] Bbox too small (w/h ≤ {target_size}) : {json_file}")
                 continue
+
+            """if w <= 0 or h <= 0:
+                print(f"[⚠️] Bbox invalide ignorée (w/h ≤ 0) : {json_file}")
+                continue"""
 
             cropped = image.crop((x, y, x + w, y + h))
 
@@ -153,7 +161,7 @@ def reflect_pad_np(img: Image.Image, target_size: int) -> Image.Image:
 def process_dataset_reflect_numpy(
     root_dir,
     output_dir,
-    target_size=64
+    target_size=128
 ):
     os.makedirs(output_dir, exist_ok=True)
 
@@ -175,9 +183,13 @@ def process_dataset_reflect_numpy(
             category = data["annotation"]["category_name"]
             x, y, w, h = map(int, bbox)
 
-            if w <= 0 or h <= 0:
-                print(f"[⚠️] Bbox invalide ignorée : {json_file}")
+            if w <= target_size and h <= target_size:
+                print(f"[⚠️] Bbox too small (w/h ≤ {target_size}) : {json_file}")
                 continue
+
+            """if w <= 0 or h <= 0:
+                print(f"[⚠️] Bbox invalide ignorée (w/h ≤ 0) : {json_file}")
+                continue"""
 
             cropped = image.crop((x, y, x + w, y + h))
 
@@ -289,7 +301,7 @@ _balanced_dataset_split/
 def balance_and_split_dataset(
     input_dir,
     output_dir,
-    max_per_class=3027,
+    max_per_class=5000,
     val_ratio=0.1,
     seed=42
 ):
@@ -319,7 +331,7 @@ def balance_and_split_dataset(
 
             print(f"[✓] {subset}/{class_name} : {len(subset_images)} images")
 
-#balance_and_split_dataset("/home/aobled/Downloads/_crop_classification", "/home/aobled/Downloads/_balanced_dataset_split")
+balance_and_split_dataset("/home/aobled/Downloads/_crop_classification", "/home/aobled/Downloads/_balanced_dataset_split")
 
 
 # ========== 3. Création des fichiers NPZ ==========
