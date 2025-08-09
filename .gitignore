@@ -3,6 +3,9 @@
 /Graphe_Genomes_CIFAR100
 /Graphe_Genomes_FigtherJet
 /Graphe_Genomes_MNIST
-/__pycache__
+/Test Figtherjet datasets
+/Sauv TPU v2.8 150 epochs batch_size 2_64=128 LR 0.001
+/TPU Testing
 /tests_gpu_tpu_Colab
+/__pycache__
 .pth
