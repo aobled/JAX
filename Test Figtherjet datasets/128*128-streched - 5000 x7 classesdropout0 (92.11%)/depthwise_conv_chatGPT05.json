@@ -31,7 +31,7 @@
     { "type": "batch_norm", "id": "bn5", "inputs": ["sepconv5_pw"] },
     { "type": "silu", "id": "act5", "inputs": ["bn5"] },
 
-    { "type": "dropout", "id": "drop_se", "inputs": ["act5"], "rate": 0.2 },
+    { "type": "dropout", "id": "drop_se", "inputs": ["act5"], "rate": 0.0 },
 
     { "type": "global_avg_pool", "id": "se_gap", "inputs": ["drop_se"], "keepdims": false },
     { "type": "dense", "id": "se_dense1", "inputs": ["se_gap"], "units": 64 },
@@ -57,7 +57,7 @@
     { "type": "silu", "id": "act8", "inputs": ["bn8"] },
     { "type": "add", "id": "res3", "inputs": ["act7", "act8"] },
 
-    { "type": "dropout", "id": "drop_final", "inputs": ["res3"], "rate": 0.1 },
+    { "type": "dropout", "id": "drop_final", "inputs": ["res3"], "rate": 0.0 },
 
     { "type": "global_avg_pool", "id": "se2_gap", "inputs": ["drop_final"], "keepdims": false },
     { "type": "dense", "id": "se2_fc1", "inputs": ["se2_gap"], "units": 64 , "activation": "sigmoid" },
@@ -72,7 +72,7 @@
 
     { "type": "layer_norm", "id": "norm1", "inputs": ["gap"] },
     { "type": "dense", "id": "fc1", "inputs": ["norm1"], "units": 384, "activation": "silu"  },
-    { "type": "dropout", "id": "drop1", "inputs": ["fc1"], "rate": 0.2 },
+    { "type": "dropout", "id": "drop1", "inputs": ["fc1"], "rate": 0.0 },
     { "type": "dense", "id": "output", "inputs": ["drop1"], "units": 10 }
   ],
   "output_layer": "output"

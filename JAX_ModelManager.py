@@ -7,6 +7,7 @@ import optax
 import numpy as np
 import pickle
 import numpy as np
+import time
 
 import jax
 import jax.numpy as jnp
@@ -76,6 +77,7 @@ class ModelManager:
         self.checkpoint_path = model_name + ".pth"
         self.reporting_path = model_name + ".yml"
         self.multi_device = is_multi_device()
+        print("self.multi_device=", self.multi_device)
 
         self.all_epochs = []
         self.all_losses = []
@@ -84,14 +86,15 @@ class ModelManager:
         self.all_train_correct = []
         self.epoch_start = 0
         self.best_accuracy = 0.0
+        
+        # Initialiser state et batch_stats avant de charger le reporting
+        self.init_state()
 
         if os.path.isfile(self.reporting_path):
             self.load_reporting_from_yaml(self.reporting_path)
             self.epoch_start = len(self.all_lr)
             self.best_accuracy = max(self.all_val_correct)
             print("Reporting", self.reporting_path, "loaded. Starting from epoch", self.epoch_start)
-
-        self.init_state()
     
         if self.multi_device:
             self.p_train_step = jax.pmap(self.train_step)
@@ -199,9 +202,15 @@ class ModelManager:
 
         grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
         (loss, (logits, new_batch_stats)), grads = grad_fn(state.params)
+        
+        # Calculer les prédictions correctes pour l'accumulation
+        correct_predictions = jnp.sum(jnp.argmax(logits, -1) == batch['label'])
+        total_predictions = batch['label'].shape[0]
+        
         metrics = {
             'loss': loss,
-            'accuracy': jnp.mean(jnp.argmax(logits, -1) == batch['label'])
+            'correct_predictions': correct_predictions,
+            'total_predictions': total_predictions
         }
         return grads, new_batch_stats, metrics, logits
 
@@ -222,9 +231,15 @@ class ModelManager:
         grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
         (loss, (logits, new_batch_stats)), grads = grad_fn(state.params)
         state = state.apply_gradients(grads=grads)
+        
+        # Calculer les prédictions correctes pour l'accumulation
+        correct_predictions = jnp.sum(jnp.argmax(logits, -1) == batch['label'])
+        total_predictions = batch['label'].shape[0]
+        
         metrics = {
             'loss': loss,
-            'accuracy': jnp.mean(jnp.argmax(logits, -1) == batch['label'])
+            'correct_predictions': correct_predictions,
+            'total_predictions': total_predictions
         }
         return state, new_batch_stats, metrics
 
@@ -247,12 +262,15 @@ class ModelManager:
         best_accuracy = 0.0
 
         for epoch in range(self.epoch_start, self.epoch_start + epochs):
+            epoch_start_time = time.time()  # Mesurer le début de l'epoch
             self.reporting = Reporting(nb_epochs=epoch)
             indices = np.random.permutation(train_dataset['image'].shape[0])
             train_dataset['image'] = np.asarray(train_dataset['image'])[indices]
             train_dataset['label'] = np.asarray(train_dataset['label'])[indices]
 
-            # Plus besoin d'accumulateurs pour l'accuracy train
+            # Accumulateurs pour l'accuracy train
+            total_correct_train = 0
+            total_predictions_train = 0
             
             # Gradient Accumulation
             if self.multi_device:
@@ -271,8 +289,14 @@ class ModelManager:
 
                     batch = reshape_for_pmap(batch)
                     self.state, self.batch_stats, metrics = self.p_train_step(self.state, self.batch_stats, batch)
-
-                    # Pas besoin d'accumuler l'accuracy train ici, on l'évalue proprement après
+                    
+                    # Accumuler les prédictions correctes pour le train
+                    if self.multi_device:
+                        total_correct_train += float(unreplicate(metrics['correct_predictions']))
+                        total_predictions_train += float(unreplicate(metrics['total_predictions']))
+                    else:
+                        total_correct_train += float(metrics['correct_predictions'])
+                        total_predictions_train += float(metrics['total_predictions'])
             else:
                 # Mode single-device avec gradient accumulation
                 grad_accum = None
@@ -311,11 +335,13 @@ class ModelManager:
                         grad_accum = None
                         accum_step = 0
 
-                    # Pas besoin d'accumuler l'accuracy train ici, on l'évalue proprement après
+                    # Accumuler les prédictions correctes pour le train
+                    total_correct_train += float(metrics['correct_predictions'])
+                    total_predictions_train += float(metrics['total_predictions'])
 
             val_acc = self.evaluate_model_fast(test_dataset, label_eval='val')
-            # Évaluer le train set avec le même mode que le val set (deterministic=True)
-            train_acc = self.evaluate_model_fast(train_dataset, label_eval='train')
+            # Calculer l'accuracy du train à partir des accumulateurs
+            train_acc = (total_correct_train / total_predictions_train) * 100.0
 
             if self.multi_device:
                 loss = metrics['loss'].mean()
@@ -334,7 +360,8 @@ class ModelManager:
             self.all_val_correct.append(float(val_acc))
             self.all_train_correct.append(float(train_acc))
 
-            print(f"Epoch {epoch + 1}, Loss: {loss:.4f}, LR: {float(self.scheduler(step)):.6f}, Train: {train_acc:.2f}%, Val: {val_acc:.2f}%")
+            epoch_duration = time.time() - epoch_start_time
+            print(f"Epoch {epoch + 1}, Loss: {loss:.4f}, LR: {float(self.scheduler(step)):.6f}, Train: {train_acc:.2f}%, Val: {val_acc:.2f}%, Duration: {epoch_duration:.1f}s")
 
             if val_acc > best_accuracy:
                 best_accuracy = val_acc
@@ -348,7 +375,10 @@ class ModelManager:
                 all_val_correct=self.all_val_correct,
                 all_train_correct=self.all_train_correct,
                 model_name=self.model_name,
-                nb_neurones=self.count_parameters(unreplicate(self.state).params)
+                nb_neurones=self.count_parameters(unreplicate(self.state).params),
+                label_names=self.label_names,
+                mean=self.mean,
+                std=self.std
             )
             self.save_reporting_to_yaml(self.reporting_path)
             if len(self.all_epochs) > 1:
@@ -449,6 +479,10 @@ class ModelManager:
 
 
     def save_reporting_to_yaml(self, filepath: str):
+        # Convertir les numpy arrays en listes pour la sérialisation
+        mean_list = self.mean.tolist() if hasattr(self.mean, 'tolist') else self.mean
+        std_list = self.std.tolist() if hasattr(self.std, 'tolist') else self.std
+        
         data = {
             'all_epochs': self.all_epochs,
             'all_losses': self.all_losses,
@@ -456,20 +490,46 @@ class ModelManager:
             'all_val_correct': self.all_val_correct,
             'all_train_correct': self.all_train_correct,
             'model_name': self.model_name,
-            'nb_neurones': self.count_parameters(unreplicate(self.state).params)
+            'nb_neurones': self.count_parameters(unreplicate(self.state).params),
+            'label_names': self.label_names,
+            'mean': mean_list,
+            'std': std_list
         }
         with open(filepath, 'w') as f:
             yaml.dump(data, f)
 
     def load_reporting_from_yaml(self, filepath: str):
-        with open(filepath, 'r') as f:
-            data = yaml.safe_load(f)
+        try:
+            with open(filepath, 'r') as f:
+                data = yaml.safe_load(f)
+        except Exception as e:
+            print(f"Erreur lors du chargement du fichier YAML: {e}")
+            print("Tentative de chargement avec yaml.load()...")
+            with open(filepath, 'r') as f:
+                data = yaml.load(f, Loader=yaml.Loader)
+        
         self.all_epochs = data['all_epochs']
         self.all_losses = data['all_losses']
         self.all_lr = data['all_lr']
         self.all_val_correct = data['all_val_correct']
         self.all_train_correct = data['all_train_correct']
         self.model_name = data['model_name']
+        
+        # Charger label_names, mean, std s'ils existent
+        if 'label_names' in data:
+            self.label_names = data['label_names']
+        if 'mean' in data:
+            # Convertir en numpy array si nécessaire
+            if hasattr(data['mean'], 'tolist'):
+                self.mean = data['mean'].tolist()
+            else:
+                self.mean = data['mean']
+        if 'std' in data:
+            # Convertir en numpy array si nécessaire
+            if hasattr(data['std'], 'tolist'):
+                self.std = data['std'].tolist()
+            else:
+                self.std = data['std']
 
 
     def summarize_model(self, input_shape=None):
@@ -647,6 +707,7 @@ class ModelManager:
         Transformations appliquées :
             - Recadrage aléatoire avec padding
             - Flip horizontal aléatoire
+            - Flip vertical aléatoire
             - (Optionnel) Rotation aléatoire
             - (Optionnel) Cutout
 
@@ -657,12 +718,13 @@ class ModelManager:
         Returns:
             jnp.ndarray: Image transformée.
         """
-        key1, key2, key3, key4 = jax.random.split(key, 4)
+        key1, key2, key3, key4, key5 = jax.random.split(key, 5)
         image = random_crop_with_padding(image, padding=4, key=key1)
         image = horizontal_flip(image, key2)
-        angle = jax.random.uniform(key3, minval=-0.1, maxval=0.1) * jnp.pi
+        #image = vertical_flip(image, key3)
+        angle = jax.random.uniform(key4, minval=-0.1, maxval=0.1) * jnp.pi
         image = self.rotate(image, angle)
-        image = cutout(image, size=4, key=key4)
+        image = cutout(image, size=4, key=key5)
         return image
 
     def rotate(self, image, angle):
@@ -766,6 +828,20 @@ def horizontal_flip(image, key):
     """
     do_flip = jax.random.bernoulli(key, 0.5)
     return jax.lax.cond(do_flip, lambda x: x[:, ::-1, :], lambda x: x, image)
+
+def vertical_flip(image, key):
+    """
+    Effectue un flip vertical aléatoire de l'image.
+
+    Args:
+        image (jnp.ndarray): Image à flipper (shape: [H, W, C]).
+        key (jax.random.PRNGKey): Clé aléatoire pour décider du flip.
+
+    Returns:
+        jnp.ndarray: Image éventuellement retournée verticalement.
+    """
+    do_flip = jax.random.bernoulli(key, 0.5)
+    return jax.lax.cond(do_flip, lambda x: x[::-1, :, :], lambda x: x, image)
 
 def mixup_batch(self, images, labels, key, alpha=0.2):
     """

@@ -1,0 +1,72 @@
+{
+  "layers": [
+    { "type": "input", "id": "input" },
+
+    { "type": "conv", "id": "conv1", "inputs": ["input"], "filters": 48, "kernel_size": [3, 3], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn1", "inputs": ["conv1"] },
+    { "type": "silu", "id": "act1", "inputs": ["bn1"] },
+
+    { "type": "conv", "id": "sepconv2_dw", "inputs": ["act1"], "filters": 48, "kernel_size": [3, 3], "padding": "SAME", "groups": 48 },
+    { "type": "conv", "id": "sepconv2_pw", "inputs": ["sepconv2_dw"], "filters": 96, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn2", "inputs": ["sepconv2_pw"] },
+    { "type": "silu", "id": "act2", "inputs": ["bn2"] },
+
+    { "type": "conv", "id": "sepconv3_dw", "inputs": ["act2"], "filters": 96, "kernel_size": [3, 3], "padding": "SAME", "groups": 96 },
+    { "type": "conv", "id": "sepconv3_pw", "inputs": ["sepconv3_dw"], "filters": 96, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn3", "inputs": ["sepconv3_pw"] },
+
+    { "type": "conv", "id": "res_proj1", "inputs": ["act1"], "filters": 96, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "res_bn1", "inputs": ["res_proj1"] },
+    { "type": "add", "id": "act3", "inputs": ["res_bn1", "bn3"], "activation": "silu" },
+
+    { "type": "max_pool", "id": "pool1", "inputs": ["act3"], "pool_size": [2, 2], "strides": [2, 2] },
+
+    { "type": "conv", "id": "sepconv4_dw", "inputs": ["pool1"], "filters": 96, "kernel_size": [3, 3], "padding": "SAME", "groups": 96 },
+    { "type": "conv", "id": "sepconv4_pw", "inputs": ["sepconv4_dw"], "filters": 160, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn4", "inputs": ["sepconv4_pw"] },
+    { "type": "silu", "id": "act4", "inputs": ["bn4"] },
+
+    { "type": "conv", "id": "sepconv5_dw", "inputs": ["act4"], "filters": 160, "kernel_size": [3, 3], "padding": "SAME", "groups": 160 },
+    { "type": "conv", "id": "sepconv5_pw", "inputs": ["sepconv5_dw"], "filters": 160, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn5", "inputs": ["sepconv5_pw"] },
+
+    { "type": "conv", "id": "res_proj2", "inputs": ["act4"], "filters": 160, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "res_bn2", "inputs": ["res_proj2"] },
+    { "type": "add", "id": "act5", "inputs": ["res_bn2", "bn5"], "activation": "silu" },
+
+    { "type": "dropout", "id": "drop_se", "inputs": ["act5"], "rate": 0.1 },
+
+    { "type": "global_avg_pool", "id": "se_gap", "inputs": ["drop_se"], "keepdims": false },
+    { "type": "dense", "id": "se_dense1", "inputs": ["se_gap"], "units": 20 },
+    { "type": "silu", "id": "se_act1", "inputs": ["se_dense1"] },
+    { "type": "dense", "id": "se_dense2", "inputs": ["se_act1"], "units": 160 },
+    { "type": "sigmoid", "id": "se_sigmoid", "inputs": ["se_dense2"] },
+    { "type": "broadcast", "id": "se_broadcast", "inputs": ["se_sigmoid"] },
+    { "type": "multiply", "id": "se_scaled", "inputs": ["act5", "se_broadcast"] },
+
+    { "type": "max_pool", "id": "pool2", "inputs": ["se_scaled"], "pool_size": [2, 2], "strides": [2, 2] },
+
+    { "type": "conv", "id": "conv6", "inputs": ["pool2"], "filters": 320, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn6", "inputs": ["conv6"] },
+    { "type": "silu", "id": "act6", "inputs": ["bn6"] },
+
+    { "type": "conv", "id": "sepconv6_dw", "inputs": ["act6"], "filters": 320, "kernel_size": [3, 3], "padding": "SAME", "groups": 320 },
+    { "type": "conv", "id": "sepconv6_pw", "inputs": ["sepconv6_dw"], "filters": 320, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn7", "inputs": ["sepconv6_pw"] },
+    { "type": "silu", "id": "act7", "inputs": ["bn7"] },
+
+    { "type": "conv", "id": "conv7", "inputs": ["act7"], "filters": 320, "kernel_size": [1, 1], "padding": "SAME" },
+    { "type": "batch_norm", "id": "bn8", "inputs": ["conv7"] },
+    { "type": "silu", "id": "act8", "inputs": ["bn8"] },
+    { "type": "add", "id": "res3", "inputs": ["act7", "act8"] },
+
+    { "type": "global_avg_pool", "id": "gap", "inputs": ["res3"] },
+
+    { "type": "dense", "id": "fc1", "inputs": ["gap"], "units": 128 },
+    { "type": "silu", "id": "fc1_relu", "inputs": ["fc1"] },
+    { "type": "dropout", "id": "drop1", "inputs": ["fc1_relu"], "rate": 0.3 },
+
+    { "type": "dense", "id": "output", "inputs": ["drop1"], "units": 10 }
+  ],
+  "output_layer": "output"
+}

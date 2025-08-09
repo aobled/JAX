@@ -11,7 +11,7 @@ import tqdm
 Corp des images en 224*224 avec bande vertes vertical ou horizontale et fond vert
 """
 # ========== 1. Extraction depuis JSONs ==========
-def process_dataset(
+def process_dataset_color(
     root_dir,
     output_dir,
     target_size=128,
@@ -40,7 +40,7 @@ def process_dataset(
             x, y, w, h = map(int, bbox)
 
             if w <= target_size and h <= target_size:
-                print(f"[⚠️] Bbox too small (w/h ≤ {target_size}) : {json_file}")
+                #print(f"[⚠️] Bbox too small (w/h ≤ {target_size}) : {json_file}")
                 continue
 
             """if w <= 0 or h <= 0:
@@ -76,8 +76,6 @@ def process_dataset(
             padded.save(out_path)
             #print(f"[✓] Sauvé : {out_path}")
 
-# Exemple d’utilisation :
-#process_dataset(root_dir="/home/aobled/Downloads/Figtherjet_DATASET", output_dir="/home/aobled/Downloads/_crop_classification")
 
 
 
@@ -99,7 +97,7 @@ def process_dataset_stretched(
         json_pattern = os.path.join(os.path.dirname(image_path), f"{base_name}_*.json")
         json_files = glob.glob(json_pattern)
 
-        for json_file in tqdm.tqdm(json_files):
+        for json_file in json_files:
             with open(json_file, "r") as f:
                 data = json.load(f)
 
@@ -108,7 +106,7 @@ def process_dataset_stretched(
             x, y, w, h = map(int, bbox)
 
             if w <= target_size and h <= target_size:
-                print(f"[⚠️] Bbox too small (w/h ≤ {target_size}) : {json_file}")
+                #print(f"[⚠️] Bbox too small (w/h ≤ {target_size}) : {json_file}")
                 continue
 
             """if w <= 0 or h <= 0:
@@ -131,7 +129,6 @@ def process_dataset_stretched(
 
             #print(f"[✓] Sauvé (stretched) : {out_path}")
 
-#process_dataset_stretched(root_dir="/home/aobled/Downloads/Figtherjet_DATASET", output_dir="/home/aobled/Downloads/_crop_classification")
 
 
 
@@ -184,7 +181,7 @@ def process_dataset_reflect_numpy(
             x, y, w, h = map(int, bbox)
 
             if w <= target_size and h <= target_size:
-                print(f"[⚠️] Bbox too small (w/h ≤ {target_size}) : {json_file}")
+                #print(f"[⚠️] Bbox too small (w/h ≤ {target_size}) : {json_file}")
                 continue
 
             """if w <= 0 or h <= 0:
@@ -210,7 +207,6 @@ def process_dataset_reflect_numpy(
             #print(f"[✓] Sauvé (mirror numpy) : {out_path}")
 
 
-#process_dataset_reflect_numpy(root_dir="/home/aobled/Downloads/Figtherjet_DATASET", output_dir="/home/aobled/Downloads/_crop_classification")
 
 from PIL import Image
 def process_dataset_cropped_square_centered(
@@ -241,7 +237,7 @@ def process_dataset_cropped_square_centered(
             x, y, w, h = map(int, bbox)
 
             if w <= target_size and h <= target_size:
-                print(f"[⚠️] Bbox too small (w/h ≤ {target_size}) : {json_file}")
+                #print(f"[⚠️] Bbox too small (w/h ≤ {target_size}) : {json_file}")
                 continue
 
             """if w <= 0 or h <= 0:
@@ -285,7 +281,6 @@ def process_dataset_cropped_square_centered(
 
             #print(f"[✓] Sauvé (crop carré centré) : {out_path}")
             
-#process_dataset_cropped_square_centered(root_dir="/home/aobled/Downloads/Figtherjet_DATASET", output_dir="/home/aobled/Downloads/_crop_classification")
 
 # ========== 2. Équilibrage + Split train/val ==========
 """
@@ -331,7 +326,6 @@ def balance_and_split_dataset(
 
             print(f"[✓] {subset}/{class_name} : {len(subset_images)} images")
 
-balance_and_split_dataset("/home/aobled/Downloads/_crop_classification", "/home/aobled/Downloads/_balanced_dataset_split")
 
 
 # ========== 3. Création des fichiers NPZ ==========
@@ -362,8 +356,6 @@ def create_npz_splits(
         print(f"[✓] {split} : {len(images)} images sauvegardées dans {out_file}")
 
 
-# Étape 3 : conversion en fichiers NPZ JAX-friendly
-create_npz_splits("/home/aobled/Downloads/_balanced_dataset_split", "fighterjet")
 
 """import numpy as np
 train = np.load("fighterjet_train.npz")
@@ -412,4 +404,16 @@ def calculate_normalization_stats(root_dir):
     print("Écart-type:", std)
     return mean, std
 
-mean, std = calculate_normalization_stats('/home/aobled/Downloads/_balanced_dataset_split/')
+TARGET_SIZE = 128
+#process_dataset_color(root_dir="/home/aobled/Downloads/Figtherjet_DATASET", output_dir="/home/aobled/Downloads/_crop_classification", target_size=TARGET_SIZE)
+#process_dataset_stretched(root_dir="/home/aobled/Downloads/Figtherjet_DATASET", output_dir="/home/aobled/Downloads/_crop_classification", target_size=TARGET_SIZE)
+#process_dataset_reflect_numpy(root_dir="/home/aobled/Downloads/Figtherjet_DATASET", output_dir="/home/aobled/Downloads/_crop_classification", target_size=TARGET_SIZE)
+#process_dataset_cropped_square_centered(root_dir="/home/aobled/Downloads/Figtherjet_DATASET", output_dir="/home/aobled/Downloads/_crop_classification", target_size=TARGET_SIZE)
+
+MAX_PER_CLASS = 5000
+#balance_and_split_dataset("/home/aobled/Downloads/_crop_classification", "/home/aobled/Downloads/_balanced_dataset_split", max_per_class=MAX_PER_CLASS)
+
+# Étape 3 : conversion en fichiers NPZ JAX-friendly
+IMAGE_SIZE = (TARGET_SIZE, TARGET_SIZE)
+create_npz_splits("/home/aobled/Downloads/_balanced_dataset_split", "fighterjet", image_size=IMAGE_SIZE)
+#mean, std = calculate_normalization_stats('/home/aobled/Downloads/_balanced_dataset_split/')

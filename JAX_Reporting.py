@@ -227,10 +227,10 @@ class Reporting:
         labels = np.array(dataset['label'])
         
         # ⚠️ Sous-ensemble intelligent : plus d'images pour matrice de confusion
-        if use_subset and len(images) > 1000:  # Si dataset large, prendre un sous-ensemble
+        if use_subset and len(images) > 10000:  # Si dataset large, prendre un sous-ensemble
             num_total = len(images)
             # Pour la matrice de confusion : plus d'images pour statistiques fiables
-            num_subset = min(3000, num_total // 3)  # Max 3000 images pour statistiques
+            num_subset = min(30000, num_total // 3)  # Max 3000 images pour statistiques
             np.random.seed(42)  # Fixe pour reproductibilité
             subset_indices = np.random.choice(num_total, num_subset, replace=False)
             images = images[subset_indices]

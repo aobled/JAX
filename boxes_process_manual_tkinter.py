@@ -63,6 +63,7 @@ class PhotoViewer:
         self.bboxes = []
         self.bbox_coords = []
         self.bbox_files = []  # Liste des noms de fichiers JSON pour chaque box
+        self.bbox_labels = []  # Liste des IDs des labels de texte pour chaque box
         self.deleted_bboxes = set()  # Maintenant stocke les noms de fichiers JSON
         self.highlighted_bbox = None
         self.dragging_bbox = None
@@ -121,6 +122,7 @@ class PhotoViewer:
             'Right': lambda: self.show_next_image(None),
             'Left': lambda: self.show_next_image(None, reverse=True),
             's': self.image_save_folder,
+            't': self.image_save_tmp,  # Ajout de l'action 't'
             'd': self.delete_bbox,
             'r': self.edit_category_name,
             'f': self.fill_box_full_image,  # Ajout de l'action 'f'
@@ -149,7 +151,7 @@ class PhotoViewer:
         data = {
             "annotation": {
                 "bbox": [0, 0, 50, 50],
-                "category_name": "unknown"
+                "category_name": "typhoon"
             }
         }
         with open(new_json_path, 'w') as f:
@@ -261,6 +263,11 @@ class PhotoViewer:
                 y2 += delta_y
 
             self.canvas.coords(self.bboxes[bbox_index], x1, y1, x2, y2)
+            
+            # Mettre à jour la position du label de catégorie
+            if bbox_index < len(self.bbox_labels):
+                self.canvas.coords(self.bbox_labels[bbox_index], x1 + 10, y1 - 10)
+            
             self.update_bbox_coords(bbox_index, x1, y1, x2, y2)
 
             self.drag_start_x = event.x
@@ -297,6 +304,7 @@ class PhotoViewer:
         self.bbox_handles = []
         self.bbox_coords = []
         self.bbox_files = []  # Réinitialiser la liste des fichiers JSON
+        self.bbox_labels = []  # Réinitialiser la liste des labels
 
         for idx, (bbox, category_name, bbox_file) in enumerate(self.image_manager.get_bounding_boxes()):
             color = "red" if category_name.lower() == "unknown" else "green"
@@ -312,7 +320,8 @@ class PhotoViewer:
                 self.bbox_coords.append((x1_zoomed, y1_zoomed, x2_zoomed, y2_zoomed))
                 self.bbox_files.append(bbox_file)
 
-                self.canvas.create_text(x1_zoomed + 10, y1_zoomed - 10, text=category_name, fill=color, font=("Arial", 12), tags="bbox", anchor="nw")
+                label_id = self.canvas.create_text(x1_zoomed + 10, y1_zoomed - 10, text=category_name, fill=color, font=("Arial", 12), tags="bbox", anchor="nw")
+                self.bbox_labels.append(label_id)
 
                 handle_size = 10
                 # 4 poignées par boxe : top-left, top-right, bottom-right, bottom-left
@@ -373,6 +382,10 @@ class PhotoViewer:
             delta_y = event.y - self.drag_offset_y - y1
 
             self.canvas.move(self.bboxes[self.dragging_bbox], delta_x, delta_y)
+            
+            # Déplacer aussi le label de catégorie
+            if self.dragging_bbox < len(self.bbox_labels):
+                self.canvas.move(self.bbox_labels[self.dragging_bbox], delta_x, delta_y)
 
             self.bbox_coords[self.dragging_bbox] = (x1 + delta_x, y1 + delta_y, x2 + delta_x, y2 + delta_y)
 
@@ -554,9 +567,42 @@ class PhotoViewer:
 
         self.show_next_image(None)
 
+    def image_save_tmp(self):
+        """Sauvegarde les boîtes de l'image courante sans déplacer l'image ni passer à la suivante."""
+        origin_image_path = self.image_manager.get_image_path()
+        base_name = os.path.splitext(self.image_manager.image_list[self.image_manager.current_image_index])[0]
+
+        # Créer une correspondance entre les noms de fichiers et leurs coordonnées
+        bbox_coords_map = {}
+        for idx, bbox_file in enumerate(self.bbox_files):
+            if idx < len(self.bbox_coords):
+                bbox_coords_map[bbox_file] = self.bbox_coords[idx]
+
+        bbox_files = [f for f in os.listdir(self.image_manager.root_folder) if f.startswith(base_name) and f.endswith('.json')]
+
+        for bbox_file in bbox_files:
+            if bbox_file not in self.deleted_bboxes:
+                bbox_file_path = os.path.join(self.image_manager.root_folder, bbox_file)
+
+                with open(bbox_file_path, 'r') as f:
+                    data = json.load(f)
+
+                # Utiliser les coordonnées mises à jour si disponibles
+                if bbox_file in bbox_coords_map:
+                    x1, y1, x2, y2 = bbox_coords_map[bbox_file]
+                    x1_original = x1 / self.image_manager.zoom_factor
+                    y1_original = y1 / self.image_manager.zoom_factor
+                    x2_original = x2 / self.image_manager.zoom_factor
+                    y2_original = y2 / self.image_manager.zoom_factor
+
+                    data['annotation']['bbox'] = [x1_original, y1_original, x2_original - x1_original, y2_original - y1_original]
+
+                with open(bbox_file_path, 'w') as f:
+                    json.dump(data, f)
+
     def quit_app(self):
         self.root.destroy()
 
 if __name__ == "__main__":
-    root_folder = '/home/aobled/Downloads/tmp'
+    root_folder = '/home/aobled/Downloads/Figtherjet_DATASET/Typhoon/à trier'
     viewer = PhotoViewer(root_folder)

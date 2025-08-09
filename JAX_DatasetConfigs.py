@@ -9,8 +9,8 @@ from JAX_DataManager import (
 
 DATASET_CONFIGS = {
     "MNIST": {
-            "mean": np.array([0.1307]),
-    "std": np.array([0.3081]),
+        "mean": np.array([0.1307]),
+        "std": np.array([0.3081]),
         "input_shape": (1, 28, 28, 1),
         "channels": 1,
         "num_classes": 10,
@@ -18,10 +18,11 @@ DATASET_CONFIGS = {
         "label_names": [str(i) for i in range(10)],
         "load_function": load_mnist_data,
         "size_function": get_mnist_dataset_size,
+        "model_name": 'mnist_depthwise_conv09',
     },
     "CIFAR10": {
-            "mean": np.array([0.4914, 0.4822, 0.4465]),
-    "std": np.array([0.2470, 0.2435, 0.2616]),
+        "mean": np.array([0.4914, 0.4822, 0.4465]),
+        "std": np.array([0.2470, 0.2435, 0.2616]),
         "input_shape": (1, 32, 32, 3),
         "channels": 3,
         "num_classes": 10,
@@ -32,10 +33,11 @@ DATASET_CONFIGS = {
         ],
         "load_function": load_cifar10_data,
         "size_function": get_CIFAR10_like_dataset_size,
+        "model_name": 'depthwise_conv_chatGPT04',
     },
     "CIFAR100": {
-            "mean": np.array([0.5071, 0.4867, 0.4408]),
-    "std": np.array([0.2675, 0.2565, 0.2761]),
+        "mean": np.array([0.5071, 0.4867, 0.4408]),
+        "std": np.array([0.2675, 0.2565, 0.2761]),
         "input_shape": (1, 32, 32, 3),
         "channels": 3,
         "num_classes": 100,
@@ -43,17 +45,19 @@ DATASET_CONFIGS = {
         "label_names": [f"class_{i}" for i in range(100)],
         "load_function": load_cifar100_data,
         "size_function": get_CIFAR100_like_dataset_size,
+        "model_name": 'CIFAR100_depthwise_conv09',
     },
     "FIGHTERJET": {
         "mean": np.array([0.4852, 0.5285, 0.5696]),
         "std": np.array([0.2538, 0.2503, 0.2782]),
         "input_shape": (1, 128, 128, 3),
         "channels": 3,
-        "num_classes": 7,
+        "num_classes": 8,
         "data_dir": "./data/FigtherJet/",
-        "label_names": ["c17", "f14", "f15", "f16", "f22", "f35", "mig29", "rafale", "su27", "typhoon"],
+        "label_names": ["c17", "f14", "f15", "f16", "f22", "f35", "rafale", "typhoon"],
         "load_function": load_fighterjet_data,
         "size_function": get_npz_dataset_size,
+        "model_name": 'depthwise_conv_chatGPT05',
     }
 }
 
